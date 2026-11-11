@@ -25,14 +25,18 @@
  *         "payload": { "notificationId": "<uuid>" } }
  *       { "type": "post-stats", "postId": "<uuid>",
  *         "payload": { "likes": <n>, "commentCount": <n> } }
+ *       { "type": "comment-stats", "commentId": "<uuid>",
+ *         "postId": "<uuid>", "payload": { "likes": <n> } }
  *     "notification" / "notification-removed" go only to that user's
- *     sockets; "post-stats" is broadcast to ALL connected sockets.
+ *     sockets; "post-stats" and "comment-stats" are broadcast to ALL
+ *     connected sockets.
  *     Responds 200 { ok: true } even when the user has no sockets.
  *
  *  Pushed to browsers (JSON):
  *    { "type": "notification", "payload": { "notification": {...} } }
  *    { "type": "notification-removed", "payload": { "notificationId": "..." } }
  *    { "type": "post-stats", "payload": { "postId": "...", "likes": n, "commentCount": n } }
+ *    { "type": "comment-stats", "payload": { "commentId": "...", "postId": "...", "likes": n } }
  *
  *  The frontend ALSO polls every 5s (LivePoller) as a fallback, so if
  *  this server is down nothing is lost — delivery just gets slower.
@@ -245,6 +249,16 @@ const server = http.createServer((req, res) => {
       });
       console.log(
         `[publish] post-stats ${postId} likes=${payload.likes} comments=${payload.commentCount} (${n} socket${n === 1 ? "" : "s"})`
+      );
+    } else if (type === "comment-stats") {
+      const commentId = event.commentId || payload.commentId;
+      const postId = event.postId || payload.postId;
+      const n = broadcast({
+        type: "comment-stats",
+        payload: { commentId, postId, likes: payload.likes },
+      });
+      console.log(
+        `[publish] comment-stats ${commentId} (post ${postId}) likes=${payload.likes} (${n} socket${n === 1 ? "" : "s"})`
       );
     } else {
       res.writeHead(400, { "Content-Type": "application/json" });

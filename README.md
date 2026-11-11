@@ -27,9 +27,12 @@ nothing is lost (delivery just gets slower).
     "payload": { "notificationId": "<uuid>" } }
   { "type": "post-stats", "postId": "<uuid>",
     "payload": { "likes": 3, "commentCount": 2 } }
+  { "type": "comment-stats", "commentId": "<uuid>",
+    "postId": "<uuid>", "payload": { "likes": 1 } }
   ```
   `notification` / `notification-removed` go only to that user's sockets;
-  `post-stats` is broadcast to all connected sockets. Always responds
+  `post-stats` and `comment-stats` are broadcast to all connected sockets.
+  Always responds
   `200 { "ok": true }` (even when the user has no sockets open).
 - `GET /health` → `{ "ok": true, "connections": <n> }`.
 
@@ -39,6 +42,7 @@ nothing is lost (delivery just gets slower).
 { "type": "notification", "payload": { "notification": { "..." } } }
 { "type": "notification-removed", "payload": { "notificationId": "<uuid>" } }
 { "type": "post-stats", "payload": { "postId": "<uuid>", "likes": 3, "commentCount": 2 } }
+{ "type": "comment-stats", "payload": { "commentId": "<uuid>", "postId": "<uuid>", "likes": 1 } }
 ```
 
 ## Run it
