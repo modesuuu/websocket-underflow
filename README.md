@@ -50,7 +50,7 @@ nothing is lost (delivery just gets slower).
 ```bash
 cd C:\Users\Raka Alfarezi\Documents\dev_learn\underflow-realtime
 npm install          # once (installs the `ws` package)
-nohup node server.js > realtime.log 2>&1 &
+nohup node --watch server.js > realtime.log 2>&1 &
 ```
 
 Check it answers:
@@ -65,6 +65,11 @@ curl -X POST http://127.0.0.1:8080/publish \
 ```
 
 Logs go to `realtime.log` (connections + publishes; no tokens or secrets).
+
+`--watch` is built into Node (stable since Node 22; this machine runs Node 24):
+whenever `server.js` changes, Node restarts the process itself, so edits to
+the server take effect without a manual stop/start. To run it in the
+foreground instead (logs straight to the terminal), use `node --watch server.js`.
 
 ## Stop it
 
