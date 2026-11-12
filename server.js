@@ -250,6 +250,28 @@ const server = http.createServer((req, res) => {
       console.log(
         `[publish] post-stats ${postId} likes=${payload.likes} comments=${payload.commentCount} (${n} socket${n === 1 ? "" : "s"})`
       );
+    } else if (type === "inbox-message") {
+      const userId = event.userId || payload.userId;
+      const n = userId
+        ? sendToUser(userId, {
+            type: "inbox-message",
+            payload: { conversationId: payload.conversationId, message: payload.message },
+          })
+        : 0;
+      console.log(
+        `[publish] inbox-message ${payload.conversationId} -> user ${userId} (${n} socket${n === 1 ? "" : "s"})`
+      );
+    } else if (type === "inbox-update") {
+      const userId = event.userId || payload.userId;
+      const n = userId
+        ? sendToUser(userId, {
+            type: "inbox-update",
+            payload: { conversationId: payload.conversationId },
+          })
+        : 0;
+      console.log(
+        `[publish] inbox-update ${payload.conversationId} -> user ${userId} (${n} socket${n === 1 ? "" : "s"})`
+      );
     } else if (type === "comment-stats") {
       const commentId = event.commentId || payload.commentId;
       const postId = event.postId || payload.postId;
