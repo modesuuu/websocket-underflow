@@ -299,6 +299,17 @@ const server = http.createServer((req, res) => {
       console.log(
         `[publish] inbox-update ${payload.conversationId} -> user ${userId} (${n} socket${n === 1 ? "" : "s"})`
       );
+    } else if (type === "zone-message") {
+      const userId = event.userId || payload.userId;
+      const n = userId
+        ? sendToUser(userId, {
+            type: "zone-message",
+            payload: { circleId: payload.circleId, zoneId: payload.zoneId, message: payload.message },
+          })
+        : 0;
+      console.log(
+        `[publish] zone-message ${payload.zoneId} -> user ${userId} (${n} socket${n === 1 ? "" : "s"})`
+      );
     } else if (type === "comment-stats") {
       const commentId = event.commentId || payload.commentId;
       const postId = event.postId || payload.postId;
