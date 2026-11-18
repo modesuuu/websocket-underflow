@@ -1,9 +1,9 @@
 /**
  * underflow-realtime — WebSocket push server for Underflow.
  * ─────────────────────────────────────────────────────────────────────────────
- * One process, two jobs, same port (8080, localhost only):
+ * One process, two jobs, same port (8080):
  *
- *  1. WebSocket server — browsers connect to ws://127.0.0.1:8080 and
+ *  1. WebSocket server — browsers connect over loopback or the tailnet and
  *     authenticate with their JWT as the FIRST message:
  *       { "type": "auth", "token": "<JWT from /api/auth/login>" }
  *     The JWT is verified (HS256, same algorithm + secret as the PHP
@@ -182,10 +182,21 @@ function broadcast(message) {
   return n;
 }
 
-// ── HTTP server: GET /health + POST /publish (localhost only) ──
+// ── HTTP server: GET /health + POST /publish (publish stays loopback only) ──
 function isLoopback(req) {
   const addr = req.socket.remoteAddress || "";
   return addr === "127.0.0.1" || addr === "::1" || addr === "::ffff:127.0.0.1";
+}
+
+// Tailscale gives every tailnet device an address in 100.64.0.0/10.
+function isTailnet(req) {
+  let addr = req.socket.remoteAddress || "";
+  if (addr.startsWith("::ffff:")) addr = addr.slice("::ffff:".length);
+  const parts = addr.split(".");
+  if (parts.length !== 4) return false;
+  const first = Number(parts[0]);
+  const second = Number(parts[1]);
+  return first === 100 && second >= 64 && second <= 127;
 }
 
 const server = http.createServer((req, res) => {
@@ -294,7 +305,16 @@ const server = http.createServer((req, res) => {
 });
 
 // ── WebSocket server (shares the HTTP server / port) ──
-const wss = new WebSocket.Server({ server });
+const wss = new WebSocket.Server({
+  server,
+  // The port binds every interface so tailnet devices can reach
+  // it, but upgrades are accepted only from this machine or the
+  // tailnet. A valid JWT is still required after the upgrade.
+  verifyClient: (info, cb) => {
+    if (isLoopback(info.req) || isTailnet(info.req)) return cb(true);
+    return cb(false, 403, "Forbidden");
+  },
+});
 
 wss.on("connection", (ws) => {
   let userId = null;
@@ -376,8 +396,8 @@ const heartbeat = setInterval(() => {
   });
 }, HEARTBEAT_MS);
 
-server.listen(PORT, "127.0.0.1", () => {
-  console.log(`[realtime] listening on 127.0.0.1:${PORT} (ws + POST /publish)`);
+server.listen(PORT, "0.0.0.0", () => {
+  console.log(`[realtime] listening on 0.0.0.0:${PORT} (ws: loopback + tailnet, POST /publish: loopback only)`);
 });
 
 function shutdown() {
