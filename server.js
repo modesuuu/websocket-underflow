@@ -3,7 +3,7 @@
  * ─────────────────────────────────────────────────────────────────────────────
  * One process, two jobs, same port (8080):
  *
- *  1. WebSocket server — browsers connect over loopback or the tailnet and
+ *  1. WebSocket server — browsers connect over loopback, the tailnet, or a private LAN and
  *     authenticate with their JWT as the FIRST message:
  *       { "type": "auth", "token": "<JWT from /api/auth/login>" }
  *     The JWT is verified (HS256, same algorithm + secret as the PHP
@@ -199,6 +199,22 @@ function isTailnet(req) {
   return first === 100 && second >= 64 && second <= 127;
 }
 
+// Private LAN ranges (RFC 1918): home / campus Wi-Fi development, so a
+// teammate's browser on the same network can hold a realtime socket.
+// Auth still applies: a valid JWT is required after the upgrade.
+function isPrivateLan(req) {
+  let addr = req.socket.remoteAddress || "";
+  if (addr.startsWith("::ffff:")) addr = addr.slice("::ffff:".length);
+  const parts = addr.split(".");
+  if (parts.length !== 4) return false;
+  const first = Number(parts[0]);
+  const second = Number(parts[1]);
+  if (first === 10) return true;
+  if (first === 172 && second >= 16 && second <= 31) return true;
+  if (first === 192 && second === 168) return true;
+  return false;
+}
+
 const server = http.createServer((req, res) => {
   if (req.method === "GET" && req.url === "/health") {
     res.writeHead(200, { "Content-Type": "application/json" });
@@ -307,11 +323,12 @@ const server = http.createServer((req, res) => {
 // ── WebSocket server (shares the HTTP server / port) ──
 const wss = new WebSocket.Server({
   server,
-  // The port binds every interface so tailnet devices can reach
-  // it, but upgrades are accepted only from this machine or the
-  // tailnet. A valid JWT is still required after the upgrade.
+  // The port binds every interface so LAN and tailnet devices can
+  // reach it, but upgrades are accepted only from this machine, the
+  // tailnet, or a private LAN. A valid JWT is still required after
+  // the upgrade.
   verifyClient: (info, cb) => {
-    if (isLoopback(info.req) || isTailnet(info.req)) return cb(true);
+    if (isLoopback(info.req) || isTailnet(info.req) || isPrivateLan(info.req)) return cb(true);
     return cb(false, 403, "Forbidden");
   },
 });
@@ -397,7 +414,7 @@ const heartbeat = setInterval(() => {
 }, HEARTBEAT_MS);
 
 server.listen(PORT, "0.0.0.0", () => {
-  console.log(`[realtime] listening on 0.0.0.0:${PORT} (ws: loopback + tailnet, POST /publish: loopback only)`);
+  console.log(`[realtime] listening on 0.0.0.0:${PORT} (ws: loopback + tailnet + private LAN, POST /publish: loopback only)`);
 });
 
 function shutdown() {
